@@ -30,27 +30,25 @@ if api_key:
         if st.button("🚀 Imbas & Simpan Data Automatik"):
             with st.spinner("AI sedang membaca data..."):
                 try:
-                    # 1. Cari secara automatik semua model yang disokong akaun API anda
-                    available_models = [
-                        m.name
-                        for m in genai.list_models()
-                        if "generateContent" in m.supported_generation_methods
-                    ]
+                    # Dapatkan terus senarai model yang SAH dari akaun API anda
+                    active_model = None
+                    for m in genai.list_models():
+                        if (
+                            "generateContent"
+                            in m.supported_generation_methods
+                        ):
+                            if "flash" in m.name:
+                                active_model = m.name
+                                break
+                            elif not active_model:
+                                active_model = m.name
 
-                    # 2. Utamakan model 'flash' (paling pantas), jika tiada guna model pertama yang ada
-                    target_model = None
-                    for m in available_models:
-                        if "flash" in m:
-                            target_model = m
-                            break
-                    if not target_model and available_models:
-                        target_model = available_models[0]
+                    if not active_model:
+                        active_model = "models/gemini-1.5-flash"
 
-                    if not target_model:
-                        target_model = "models/gemini-1.5-flash"
+                    # Guna model yang dikesan
+                    model = genai.GenerativeModel(active_model)
 
-                    # 3. Jalankan pemprosesan AI menggunakan model terpilih
-                    model = genai.GenerativeModel(target_model)
                     prompt = """
                     Analisis gambar inbois/resit ini. Ekstrak data dan kembalikan HANYA format JSON berikut (tanpa tanda markdown/backticks):
                     {
@@ -72,7 +70,7 @@ if api_key:
                     )
                     data = json.loads(clean_json)
 
-                    # Simpan data ke fail CSV local
+                    # Simpan data ke fail CSV
                     df_new = pd.DataFrame([data])
 
                     if os.path.exists("rekod_inbois.csv"):
