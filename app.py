@@ -30,8 +30,24 @@ if api_key:
         if st.button("🚀 Imbas & Simpan Data Automatik"):
             with st.spinner("AI sedang membaca data..."):
                 try:
-                    # Menggunakan model rasmi standard
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    # Dapatkan terus senarai model yang SAH dari akaun API anda
+                    active_model = None
+                    for m in genai.list_models():
+                        if (
+                            "generateContent"
+                            in m.supported_generation_methods
+                        ):
+                            if "flash" in m.name:
+                                active_model = m.name
+                                break
+                            elif not active_model:
+                                active_model = m.name
+
+                    if not active_model:
+                        active_model = "models/gemini-1.5-flash"
+
+                    # Guna model yang dikesan
+                    model = genai.GenerativeModel(active_model)
 
                     prompt = """
                     Analisis gambar inbois/resit ini. Ekstrak data dan kembalikan HANYA format JSON berikut (tanpa tanda markdown/backticks):
