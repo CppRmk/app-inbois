@@ -30,44 +30,66 @@ if api_key:
         if st.button("🚀 Imbas & Simpan Data Automatik"):
             with st.spinner("AI sedang membaca data..."):
                 try:
-                    # Guna model rasmi & stabil dari Google
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    # 1. Tanya Google API secara terus model mana yang aktif untuk API Key ini
+                    valid_models = []
+                    for m in genai.list_models():
+                        if (
+                            "generateContent"
+                            in m.supported_generation_methods
+                        ):
+                            valid_models.append(m.name)
 
-                    prompt = """
-                    Analisis gambar inbois/resit ini. Ekstrak data dan kembalikan HANYA format JSON berikut (tanpa tanda markdown/backticks):
-                    {
-                      "Tarikh Inbois": "tarikh",
-                      "No Inbois": "nombor inbois",
-                      "Nama Pembeli": "nama pembeli",
-                      "No Pasport": "nombor pasport",
-                      "Senarai Barang": "ringkasan barang dan kuantiti",
-                      "Jumlah Bersih (RM)": "jumlah grand total",
-                      "No Kastam": "nombor kenderaan/pegawai kastam"
-                    }
-                    """
-
-                    response = model.generate_content([prompt, image])
-                    clean_json = (
-                        response.text.replace("```json", "")
-                        .replace("```", "")
-                        .strip()
-                    )
-                    data = json.loads(clean_json)
-
-                    # Simpan data ke fail CSV
-                    df_new = pd.DataFrame([data])
-
-                    if os.path.exists("rekod_inbois.csv"):
-                        df_old = pd.read_csv("rekod_inbois.csv")
-                        df_final = pd.concat(
-                            [df_old, df_new], ignore_index=True
+                    if not valid_models:
+                        st.error(
+                            "Tiada model AI ditemui untuk API Key ini. Sila semak semula API Key anda di Google AI Studio."
                         )
                     else:
-                        df_final = df_new
+                        # Pilih model 'flash' atau model pertama yang tersedia
+                        chosen_model = next(
+                            (m for m in valid_models if "flash" in m),
+                            valid_models[0],
+                        )
 
-                    df_final.to_csv("rekod_inbois.csv", index=False)
-                    st.success("✅ Data berjaya dibaca dan disimpan!")
-                    st.rerun()
+                        # Paparkan model yang dipilih untuk pengesahan
+                        st.toast(f"Menggunakan model: {chosen_model}")
+
+                        model = genai.GenerativeModel(chosen_model)
+
+                        prompt = """
+                        Analisis gambar inbois/resit ini. Ekstrak data dan kembalikan HANYA format JSON berikut (tanpa tanda markdown/backticks):
+                        {
+                          "Tarikh Inbois": "tarikh",
+                          "No Inbois": "nombor inbois",
+                          "Nama Pembeli": "nama pembeli",
+                          "No Pasport": "nombor pasport",
+                          "Senarai Barang": "ringkasan barang dan kuantiti",
+                          "Jumlah Bersih (RM)": "jumlah grand total",
+                          "No Kastam": "nombor kenderaan/pegawai kastam"
+                        }
+                        """
+
+                        response = model.generate_content([prompt, image])
+                        clean_json = (
+                            response.text.replace("```json", "")
+                            .replace("```", "")
+                            .strip()
+                        )
+                        data = json.loads(clean_json)
+
+                        # Simpan data ke fail CSV
+                        df_new = pd.DataFrame([data])
+
+                        if os.path.exists("rekod_inbois.csv"):
+                            df_old = pd.read_csv("rekod_inbois.csv")
+                            df_final = pd.concat(
+                                [df_old, df_new], ignore_index=True
+                            )
+                        else:
+                            df_final = df_new
+
+                        df_final.to_csv("rekod_inbois.csv", index=False)
+                        st.success("✅ Data berjaya dibaca dan disimpan!")
+                        st.rerun()
 
                 except Exception as e:
                     st.error(f"Ralat: {e}")
