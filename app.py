@@ -22,14 +22,11 @@ if api_key:
     )
     genai.configure(api_key=clean_key)
 
-    # Diagnostik Model AI pada akaun pengguna
     st.sidebar.subheader("🔍 Status Model AI Akaun Anda")
     all_models = []
     try:
-        # Senaraikan semua model yang disokong oleh API Key ini
         for m in genai.list_models():
             if "generateContent" in m.supported_generation_methods:
-                # Ambil nama model tanpa awalan 'models/'
                 name_clean = m.name.replace("models/", "")
                 all_models.append(name_clean)
 
@@ -42,9 +39,7 @@ if api_key:
             )
         else:
             selected_model_name = None
-            st.sidebar.error(
-                "⚠️ Tiada model ditemui! Akaun/API Key anda belum mengaktifkan Generative Language API di Google Cloud."
-            )
+            st.sidebar.error("⚠️ Tiada model ditemui!")
     except Exception as e:
         selected_model_name = None
         st.sidebar.error(f"⚠️ Ralat Semakan API Key: {e}")
@@ -60,13 +55,9 @@ if api_key:
 
         if st.button("🚀 Imbas & Simpan Data Automatik"):
             if not selected_model_name:
-                st.error(
-                    "Sila pastikan API Key sah dan model AI terpilih di sidebar."
-                )
+                st.error("Sila pilih model AI di sidebar.")
             else:
-                with st.spinner(
-                    f"AI ({selected_model_name}) sedang membaca data..."
-                ):
+                with st.spinner("AI sedang membaca dan memisahkan barang..."):
                     try:
                         model = genai.GenerativeModel(selected_model_name)
 
@@ -77,9 +68,16 @@ if api_key:
                           "No Inbois": "nombor inbois",
                           "Nama Pembeli": "nama pembeli",
                           "No Pasport": "nombor pasport",
-                          "Senarai Barang": "ringkasan barang dan kuantiti",
-                          "Jumlah Bersih (RM)": "jumlah grand total",
-                          "No Kastam": "nombor kenderaan/pegawai kastam"
+                          "Jumlah Bersih Inbois (RM)": "jumlah grand total inbois",
+                          "No Kastam": "nombor kenderaan/pegawai/cop kastam",
+                          "Senarai Barang": [
+                             {
+                               "Nama Barang": "nama/deskripsi barang",
+                               "Kuantiti": "kuantiti",
+                               "Harga Seunit (RM)": "harga seunit",
+                               "Jumlah (RM)": "jumlah harga barang ini"
+                             }
+                          ]
                         }
                         """
 
@@ -91,7 +89,38 @@ if api_key:
                         )
                         data = json.loads(clean_json)
 
-                        df_new = pd.DataFrame([data])
+                        # Pecahkan setiap item barang menjadi baris tersendiri
+                        items = data.get("Senarai Barang", [])
+                        rows = []
+
+                        if isinstance(items, list) and len(items) > 0:
+                            for item in items:
+                                row = {
+                                    "Tarikh Inbois": data.get(
+                                        "Tarikh Inbois", ""
+                                    ),
+                                    "No Inbois": str(data.get("No Inbois", "")),
+                                    "Nama Pembeli": data.get(
+                                        "Nama Pembeli", ""
+                                    ),
+                                    "No Pasport": data.get("No Pasport", ""),
+                                    "Nama Barang": item.get("Nama Barang", ""),
+                                    "Kuantiti": item.get("Kuantiti", ""),
+                                    "Harga Seunit (RM)": item.get(
+                                        "Harga Seunit (RM)", ""
+                                    ),
+                                    "Jumlah Barang (RM)": item.get(
+                                        "Jumlah (RM)", ""
+                                    ),
+                                    "Jumlah Bersih Inbois (RM)": data.get(
+                                        "Jumlah Bersih Inbois (RM)", ""
+                                    ),
+                                    "No Kastam": data.get("No Kastam", ""),
+                                }
+                                rows.append(row)
+                            df_new = pd.DataFrame(rows)
+                        else:
+                            df_new = pd.DataFrame([data])
 
                         if os.path.exists("rekod_inbois.csv"):
                             df_old = pd.read_csv("rekod_inbois.csv")
@@ -102,15 +131,15 @@ if api_key:
                             df_final = df_new
 
                         df_final.to_csv("rekod_inbois.csv", index=False)
-                        st.success("✅ Data berjaya dibaca dan disimpan!")
+                        st.success(
+                            "✅ Data dan senarai barang berjaya dipisahkan & disimpan!"
+                        )
                         st.rerun()
 
                     except Exception as e:
                         st.error(f"Ralat Pemprosesan: {e}")
 else:
-    st.warning(
-        "⚠️ API Key belum dikesan. Sila masukkan GEMINI_API_KEY di Streamlit Secrets atau Sidebar."
-    )
+    st.warning("⚠️ API Key belum dikesan.")
 
 # Paparkan jadual data
 st.divider()
@@ -128,4 +157,4 @@ if os.path.exists("rekod_inbois.csv"):
         mime="text/csv",
     )
 else:
-    st.info("Belum ada rekod disimpan. Imbas gambar pertama anda di atas!")
+    st.info("Belum ada rekod disimpan.")
