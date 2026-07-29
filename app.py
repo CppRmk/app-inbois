@@ -30,7 +30,21 @@ if api_key:
         if st.button("🚀 Imbas & Simpan Data Automatik"):
             with st.spinner("AI sedang membaca data..."):
                 try:
-                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    # Cari model AI yang tersedia secara automatik
+                    model_name = "gemini-1.5-flash-latest"
+                    try:
+                        for m in genai.list_models():
+                            if (
+                                "generateContent"
+                                in m.supported_generation_methods
+                            ):
+                                if "flash" in m.name:
+                                    model_name = m.name
+                                    break
+                    except:
+                        pass
+
+                    model = genai.GenerativeModel(model_name)
                     prompt = """
                     Analisis gambar inbois/resit ini. Ekstrak data dan kembalikan HANYA format JSON berikut (tanpa tanda markdown/backticks):
                     {
@@ -62,6 +76,7 @@ if api_key:
 
                     df_final.to_csv("rekod_inbois.csv", index=False)
                     st.success("✅ Data berjaya dibaca dan disimpan!")
+                    st.rerun()
 
                 except Exception as e:
                     st.error(f"Ralat: {e}")
