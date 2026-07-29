@@ -8,16 +8,19 @@ import streamlit as st
 st.set_page_config(page_title="Imbasan Inbois AI", layout="wide")
 st.title("🧾 Pengimbas Inbois Kastam Automatik")
 
-# Input API Key di sidebar
-st.sidebar.header("Tetapan AI")
-api_key = st.sidebar.text_input(
-    "Masukkan Gemini API Key anda:", type="password"
-)
+# 1. Ambil API Key secara automatik dari Secrets
+api_key = st.secrets.get("GEMINI_API_KEY", "")
+
+# Fallback jika Secrets belum diisi
+if not api_key:
+    api_key = st.sidebar.text_input(
+        "Masukkan Gemini API Key (bermula AIzaSy...):", type="password"
+    )
 
 if api_key:
+    api_key = api_key.strip()
     genai.configure(api_key=api_key)
 
-    # Ambil gambar / upload
     st.subheader("1. Ambil Gambar Inbois")
     uploaded_file = st.file_uploader(
         "Pilih gambar atau snap guna kamera", type=["jpg", "jpeg", "png"]
@@ -30,7 +33,7 @@ if api_key:
         if st.button("🚀 Imbas & Simpan Data Automatik"):
             with st.spinner("AI sedang membaca data..."):
                 try:
-                    # Guna model rasmi Gemini 1.5 Flash
+                    # Model standard rasmi
                     model = genai.GenerativeModel("gemini-1.5-flash")
 
                     prompt = """
@@ -70,7 +73,11 @@ if api_key:
                     st.rerun()
 
                 except Exception as e:
-                    st.error(f"Ralat: {e}")
+                    st.error(f"Ralat Pemprosesan: {e}")
+else:
+    st.warning(
+        "⚠️ API Key belum dikesan. Sila masukkan GEMINI_API_KEY di Streamlit Secrets atau Sidebar."
+    )
 
 # Paparkan jadual data
 st.divider()
@@ -80,7 +87,6 @@ if os.path.exists("rekod_inbois.csv"):
     df_data = pd.read_csv("rekod_inbois.csv")
     st.dataframe(df_data)
 
-    # Butang Download Excel/CSV
     csv_bytes = df_data.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 Muat Turun Fail CSV / Excel",
