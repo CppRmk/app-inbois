@@ -89,7 +89,7 @@ if api_key:
                         )
                         data = json.loads(clean_json)
 
-                        # Pecahkan setiap item barang menjadi baris tersendiri
+                        # SIMPAN SEBAGAI PILIHAN A (1 Barang = 1 Baris)
                         items = data.get("Senarai Barang", [])
                         rows = []
 
@@ -132,7 +132,7 @@ if api_key:
 
                         df_final.to_csv("rekod_inbois.csv", index=False)
                         st.success(
-                            "✅ Data dan senarai barang berjaya dipisahkan & disimpan!"
+                            "✅ Data berjaya dibaca dan disimpan (Pilihan A)!"
                         )
                         st.rerun()
 
@@ -141,19 +141,66 @@ if api_key:
 else:
     st.warning("⚠️ API Key belum dikesan.")
 
-# Paparkan jadual data
+# PAPARKAN JADUAL DATA (PILIHAN A ON SCREEN)
 st.divider()
-st.subheader("📊 Rekod Data Inbois Tersimpan")
+st.subheader("📊 Rekod Data Terperinci (Pilihan A)")
 
 if os.path.exists("rekod_inbois.csv"):
     df_data = pd.read_csv("rekod_inbois.csv")
     st.dataframe(df_data)
 
-    csv_bytes = df_data.to_csv(index=False).encode("utf-8")
+    # TUKAR KEPADA PILIHAN B SECARA AUTOMATIK UNTUK DOWNLOAD
+    group_cols = [
+        c
+        for c in [
+            "Tarikh Inbois",
+            "No Inbois",
+            "Nama Pembeli",
+            "No Pasport",
+            "Jumlah Bersih Inbois (RM)",
+            "No Kastam",
+        ]
+        if c in df_data.columns
+    ]
+
+    if group_cols:
+
+        def combine_items(g):
+            items_list = []
+            for _, r in g.iterrows():
+                b_name = r.get("Nama Barang", "")
+                qty = r.get("Kuantiti", "")
+                total = r.get("Jumlah Barang (RM)", "")
+                items_list.append(f"• {b_name} (Qty: {qty}) - RM{total}")
+            return pd.Series({"Senarai Barang": "\n".join(items_list)})
+
+        df_b = (
+            df_data.groupby(group_cols, dropna=False, sort=False)
+            .apply(combine_items)
+            .reset_index()
+        )
+
+        # Susun semula lajur
+        cols_order = [
+            "Tarikh Inbois",
+            "No Inbois",
+            "Nama Pembeli",
+            "No Pasport",
+            "Senarai Barang",
+            "Jumlah Bersih Inbois (RM)",
+            "No Kastam",
+        ]
+        existing_cols = [c for c in cols_order if c in df_b.columns]
+        df_download = df_b[existing_cols]
+    else:
+        df_download = df_data
+
+    csv_bytes = df_download.to_csv(index=False).encode("utf-8")
+
     st.download_button(
-        label="📥 Muat Turun Fail CSV / Excel",
+        label="📥 Muat Turun Fail CSV / Excel (Format Pilihan B - 1 Inbois 1 Baris)",
         data=csv_bytes,
-        file_name="rekod_inbois_kastam.csv",
+        file_name="rekod_inbois_ringkas.csv",
         mime="text/csv",
     )
 else:
