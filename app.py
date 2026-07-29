@@ -30,21 +30,27 @@ if api_key:
         if st.button("🚀 Imbas & Simpan Data Automatik"):
             with st.spinner("AI sedang membaca data..."):
                 try:
-                    # Cari model AI yang tersedia secara automatik
-                    model_name = "gemini-1.5-flash-latest"
-                    try:
-                        for m in genai.list_models():
-                            if (
-                                "generateContent"
-                                in m.supported_generation_methods
-                            ):
-                                if "flash" in m.name:
-                                    model_name = m.name
-                                    break
-                    except:
-                        pass
+                    # 1. Cari secara automatik semua model yang disokong akaun API anda
+                    available_models = [
+                        m.name
+                        for m in genai.list_models()
+                        if "generateContent" in m.supported_generation_methods
+                    ]
 
-                    model = genai.GenerativeModel(model_name)
+                    # 2. Utamakan model 'flash' (paling pantas), jika tiada guna model pertama yang ada
+                    target_model = None
+                    for m in available_models:
+                        if "flash" in m:
+                            target_model = m
+                            break
+                    if not target_model and available_models:
+                        target_model = available_models[0]
+
+                    if not target_model:
+                        target_model = "models/gemini-1.5-flash"
+
+                    # 3. Jalankan pemprosesan AI menggunakan model terpilih
+                    model = genai.GenerativeModel(target_model)
                     prompt = """
                     Analisis gambar inbois/resit ini. Ekstrak data dan kembalikan HANYA format JSON berikut (tanpa tanda markdown/backticks):
                     {
@@ -57,6 +63,7 @@ if api_key:
                       "No Kastam": "nombor kenderaan/pegawai kastam"
                     }
                     """
+
                     response = model.generate_content([prompt, image])
                     clean_json = (
                         response.text.replace("```json", "")
@@ -70,7 +77,9 @@ if api_key:
 
                     if os.path.exists("rekod_inbois.csv"):
                         df_old = pd.read_csv("rekod_inbois.csv")
-                        df_final = pd.concat([df_old, df_new], ignore_index=True)
+                        df_final = pd.concat(
+                            [df_old, df_new], ignore_index=True
+                        )
                     else:
                         df_final = df_new
 
